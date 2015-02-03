@@ -3,6 +3,7 @@
             [compojure.route :as route]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
             [tentacles.users :as users]
+            [tentacles.repos :as repos]
             [monger.core :as mg]
             [monger.collection :as mc]))
 
@@ -14,11 +15,26 @@
 
 (defn repo-users []
   (map :first_name (get-users)))
-  ;(str (:avatar_url (users/user "sdorunga1"))))
 
 (defn create-user
   [user]
   (mc/insert db "users" { :first_name "John" :last_name "Lennon" }))
+
+
+(defn repo-map  [{id :id name :name}]  {:id id :name name})
+
+(defn contributors  [user-id repo-name]
+    (repos/contributors user-id repo-name))
+
+(defn top-contributors [user-name repo-name]
+  (let [contributors (contributors user-name repo-name)]
+    (->> contributors
+         (sort-by :contributions >)
+         (take 3)
+         (shuffle)
+         (take 1))))
+
+(defn handle_webhook [body] println body)
 
 (defroutes app-routes
   (GET "/" [] (repo-users))
@@ -26,6 +42,7 @@
        (do
          (create-user "Joe")
          "Success"))
+  (POST "/webhooks" {body :body} (handle_webhook body))
   (route/not-found "Not Found"))
 
 (def app
