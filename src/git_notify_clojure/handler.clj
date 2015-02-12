@@ -2,6 +2,7 @@
   (:require [compojure.core :refer :all]
             [compojure.route :as route]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
+            [ring.middleware.json :refer [wrap-json-body]]
             [tentacles.users :as users]
             [tentacles.repos :as repos]
             [monger.core :as mg]
@@ -34,17 +35,24 @@
          (shuffle)
          (take 1))))
 
-(defn handle_webhook [body] println body)
+(defn handle_webhook [request] 
+  (let [{body :body} request
+        {pr :pull_request} body
+        {pr_body :body} pr
+        ]
+     (println pr_body)))
 
 (defroutes app-routes
-  (GET "/" [] (repo-users))
+  (GET "/" []  (do (println "hi") (repo-users)))
   (GET "/create_user" [] 
        (do
          (create-user "Joe")
          "Success"))
-  (POST "/webhooks" {body :body} (handle_webhook body))
+  (POST "/webhooks" request (do (println request) (handle_webhook request) "Yay"))
   (route/not-found "Not Found"))
 
 (def app
-  (wrap-defaults app-routes site-defaults))
+  (-> app-routes
+      (wrap-defaults (assoc-in site-defaults [:security :anti-forgery] false))
+      (wrap-json-body {:keywords? true})))
 
