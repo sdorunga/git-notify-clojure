@@ -19,10 +19,8 @@
 
 (defn create-user
   [user]
-  (mc/insert db "users" { :first_name "John" :last_name "Lennon" }))
-
-
-(defn repo-map  [{id :id name :name}]  {:id id :name name})
+  (println user)
+  (mc/update db "users" {:github-username user} { :slack-username user :notify false } { :upsert true }))
 
 (defn contributors  [user-id repo-name]
     (repos/contributors user-id repo-name))
@@ -35,12 +33,17 @@
          (shuffle)
          (take 1))))
 
+(defn parse-users [string]
+  (map last (re-seq #"@([\w+-]+)" string)))
+
 (defn handle_webhook [request] 
   (let [{body :body} request
-        {pr :pull_request} body
+        {pr :pull_request repository :repository} body
         {pr_body :body} pr
+        top-contributors (top-contributors (:login (:user pr)) (:name repository))
+        mentioned-users (parse-users pr_body)
         ]
-     (println pr_body)))
+     (map create-user (into (map :login top-contributors) mentioned-users))))
 
 (defroutes app-routes
   (GET "/" []  (do (println "hi") (repo-users)))
@@ -48,7 +51,7 @@
        (do
          (create-user "Joe")
          "Success"))
-  (POST "/webhooks" request (do (println request) (handle_webhook request) "Yay"))
+  (POST "/webhooks" request (do (handle_webhook request) "Yay"))
   (route/not-found "Not Found"))
 
 (def app
