@@ -15,12 +15,12 @@
     (mc/find-maps db "users"))
 
 (defn repo-users []
-  (map :first_name (get-users)))
+  (get-users))
 
 (defn create-user
   [user]
   (println user)
-  (mc/update db "users" {:github-username user} { :slack-username user :notify false } { :upsert true }))
+  (mc/upsert db "users" {:github-username user} { :slack-username user :notify false }))
 
 (defn contributors  [user-id repo-name]
     (repos/contributors user-id repo-name))
@@ -42,8 +42,8 @@
         {pr_body :body} pr
         top-contributors (top-contributors (:login (:user pr)) (:name repository))
         mentioned-users (parse-users pr_body)
-        ]
-     (map create-user (into (map :login top-contributors) mentioned-users))))
+        notifiable-users (into (map :login top-contributors) mentioned-users)]
+     (create-user (first notifiable-users))))
 
 (defroutes app-routes
   (GET "/" []  (do (println "hi") (repo-users)))
