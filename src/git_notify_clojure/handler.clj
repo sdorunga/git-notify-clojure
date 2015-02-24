@@ -6,7 +6,10 @@
             [tentacles.users :as users]
             [tentacles.repos :as repos]
             [monger.core :as mg]
-            [monger.collection :as mc]))
+            [monger.collection :as mc]
+            )
+  (:use git-notify-clojure.views)
+  )
 
 (def conn (mg/connect))
 (def db (mg/get-db conn "git-notifier-clojure"))
@@ -19,8 +22,10 @@
 
 (defn create-user
   [user]
-  (println user)
-  (mc/upsert db "users" {:github-username user} { :slack-username user :notify false }))
+  (if-let [user (seq (mc/find db "users" { :github-username user }))]
+    (println user)
+    (do
+      (mc/upsert db "users"  {:github-username user}  {:github-username user :slack-username user :notify false })))) 
 
 (defn contributors  [user-id repo-name]
     (repos/contributors user-id repo-name))
@@ -40,18 +45,18 @@
   (let [{body :body} request
         {pr :pull_request repository :repository} body
         {pr_body :body} pr
-        top-contributors (top-contributors (:login (:user pr)) (:name repository))
+        top (top-contributors (:login (:user pr)) (:name repository))
         mentioned-users (parse-users pr_body)
-        notifiable-users (into (map :login top-contributors) mentioned-users)]
-     (create-user (first notifiable-users))))
+        notifiable-users (into (map :login top) mentioned-users)]
+    (dorun (map create-user notifiable-users))))
 
 (defroutes app-routes
-  (GET "/" []  (do (println "hi") (repo-users)))
+  (GET "/" []  (users-page (repo-users)))
   (GET "/create_user" [] 
        (do
          (create-user "Joe")
          "Success"))
-  (POST "/webhooks" request (do (handle_webhook request) "Yay"))
+  (POST "/webhooks" request (do (handle_webhook request) {:status 200}))
   (route/not-found "Not Found"))
 
 (def app
