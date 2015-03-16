@@ -32,14 +32,18 @@
 
 (defn top-contributors [user-name repo-name]
   (let [contributors (contributors user-name repo-name)]
-    (->> contributors
-         (sort-by :contributions >)
-         (take 3)
-         (shuffle)
-         (take 1))))
+    (if-not (:status contributors)
+      (->> contributors
+           (sort-by :contributions >)
+           (take 3)
+           (shuffle)
+           (take 1))
+      '()
+      )))
 
 (defn parse-users [string]
-  (map last (re-seq #"@([\w+-]+)" string)))
+  (let [string string ]
+    (map last (re-seq #"@([\w+-]+)" string))) )
 
 (defn handle_webhook [request] 
   (let [{body :body} request
@@ -55,7 +59,7 @@
   (GET "/create_user" [] 
        (do
          (create-user "Joe")
-         "Success"))
+         {:status 204 :body "Success"}))
   (POST "/webhooks" request (do (handle_webhook request) {:status 200}))
   (route/not-found "Not Found"))
 
